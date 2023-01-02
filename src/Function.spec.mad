@@ -1,0 +1,30 @@
+import {test, assertEquals} from "Test"
+import String from "String"
+import { always } from "Function"
+import { Just, Nothing } from "Maybe"
+import { cond } from "./Function"
+
+test("cond", () =>
+  pipe(
+    map(cond([
+      #[String.startsWith("x"), always("x")],
+      #[String.endsWith("y"), always("y")],
+      #[String.includes('-'), always("z")],
+    ])),
+    assertEquals(
+      [
+        Just("x"),
+        Just("y"),
+        Just("z"),
+        Just("y"),
+        Nothing
+      ]
+    )
+  )([
+    "xylophone",
+    "phony",
+    "555-867-5309",
+    "----y",
+    "cooooooool"
+  ])
+)

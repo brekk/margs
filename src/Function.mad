@@ -1,0 +1,14 @@
+import type {Maybe} from "Maybe"
+import {Just, Nothing} from "Maybe"
+
+alias Predicate a = a -> Boolean
+alias Transform a b = a -> b
+alias PredicateTransformer a b = #[Predicate a, Transform a b]
+
+cond :: List (PredicateTransformer a b) -> a -> Maybe b
+export cond = (predlist, x) => pipe(
+  where {
+    [] => Nothing
+    [#[check, call], ...xs] => check(x) ? Just(call(x)) : cond(xs, x)
+  }
+)(predlist)

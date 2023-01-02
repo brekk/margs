@@ -1,0 +1,213 @@
+import {test, assertEquals} from "Test"
+import IO from "IO"
+import {
+  ConcreteBooleanFlag,
+  ConcreteStringFlag,
+  Exclusive,
+  Garbage,
+  Gap,
+  Flag,
+  Ordered,
+  ParseBoolean,
+  ParseInteger,
+  ParseString,
+  Unspecial,
+  InputValidFlag,
+  InputInvalidFlag,
+  InputRaw,
+  applyParsedFlags,
+  cleanFlag,
+  hasFlag,
+  hasInvalidFlags,
+  hasReadInvalidFlags,
+  lookupFlag,
+  parseAsBoolean,
+  parseAsBooleanFlag,
+  parseAsExclusiveFlag,
+  parseAsInteger,
+  parseAsString,
+  parser,
+  rightApplyArgs,
+} from "./Margs"
+
+test("parser - invalid flag", () => pipe(
+  parser([
+    Flag("input", ["i"], ParseString, Unspecial),
+    Flag("output", ["o"], ParseString, Unspecial),
+    Flag("json", ["I"], ParseBoolean, Unspecial),
+    Flag("path", ["p"], ParseBoolean, Unspecial),
+    Flag("debug", ["d"], ParseBoolean, Unspecial),
+    Flag("help", ["h"], ParseBoolean, Exclusive),
+    Flag("hhhhhhh", ["help", "e", "dope"], ParseBoolean, Exclusive),
+    Flag("i", ["input"], ParseString, Unspecial),
+  ]),
+  assertEquals(`Invalid:
+  - Flag(hhhhhhh::help:e:dope)
+  - Flag(i::input)`)
+  )("-i input.file -o output.file --debug --path=./src/List.mad")
+)
+
+
+test("parser - valid", () => pipe(
+  parser([
+    Flag("input",       ["i"], ParseString, Unspecial),
+    Flag("require",     ["r"], ParseString, Unspecial),
+    Flag("jsonInput",   ["I"], ParseBoolean, Unspecial),
+    Flag("jsonOutput",  ["o"], ParseBoolean, Unspecial),
+    Flag("debug",       ["d"], ParseBoolean, Ordered(10)),
+    Flag("prettyPrint", ["pretty", "p"], ParseBoolean, Ordered(1)),
+    Flag("export",      ["e"], ParseBoolean, Unspecial),
+    Flag("help",        ["h"], ParseBoolean, Exclusive),
+  ]),
+  assertEquals(`temp temp`)
+  )("-i input.file -I --pretty    --jsonOutput output.file --no-debug --path=./src/List.mad")
+)
+
+test("cleanFlag", () =>
+  pipe(
+    map(cleanFlag),
+    assertEquals(["cool", "x", "awesome"])
+  )(["--no-cool", "-x", "--awesome"])
+)
+
+test("parseAsExclusiveFlag - true", () =>
+  pipe(
+    parseAsExclusiveFlag,
+    assertEquals(true)
+  )(Flag("yo", [], ParseString, Exclusive))
+)
+
+test("parseAsExclusiveFlag - false", () =>
+  pipe(
+    parseAsExclusiveFlag,
+    assertEquals(false)
+  )(Flag("yo", [], ParseString, Unspecial))
+)
+
+test("parseAsBooleanFlag - true", () =>
+  pipe(
+    parseAsBooleanFlag,
+    assertEquals(true)
+  )(Flag("yo", [], ParseBoolean, Exclusive))
+)
+
+test("parseAsBooleanFlag - false", () =>
+  pipe(
+    parseAsBooleanFlag,
+    assertEquals(false)
+  )(Flag("yo", [], ParseString, Unspecial))
+)
+
+test("parseAsBoolean", () =>
+  pipe(
+    map(parseAsBoolean),
+    assertEquals([true, false])
+  )([ParseBoolean, ParseString])
+)
+
+test("parseAsString", () =>
+  pipe(
+    map(parseAsString),
+    assertEquals([false, true])
+  )([ParseBoolean, ParseString])
+)
+
+test("parseAsInteger", () =>
+  pipe(
+    map(parseAsInteger),
+    assertEquals([false, true])
+  )([ParseBoolean, ParseInteger])
+)
+
+test("hasFlag - alias", () =>
+  pipe(
+    hasFlag("i"),
+    assertEquals(true),
+  )([
+    Flag("input", ["i"], ParseString, Unspecial),
+    Flag("output", ["o"], ParseString, Unspecial),
+    Flag("json", ["I"], ParseBoolean, Unspecial),
+    Flag("path", ["p"], ParseBoolean, Unspecial),
+    Flag("debug", ["d"], ParseBoolean, Unspecial),
+    Flag("help", ["h"], ParseBoolean, Exclusive),
+  ])
+)
+
+test("hasFlag - name", () =>
+  pipe(
+    hasFlag("input"),
+    assertEquals(true),
+  )([
+    Flag("input", ["i"], ParseString, Unspecial),
+    Flag("output", ["o"], ParseString, Unspecial),
+    Flag("json", ["I"], ParseBoolean, Unspecial),
+    Flag("path", ["p"], ParseBoolean, Unspecial),
+    Flag("debug", ["d"], ParseBoolean, Unspecial),
+    Flag("help", ["h"], ParseBoolean, Exclusive),
+  ])
+)
+
+test("hasFlag - boolean", () =>
+  pipe(
+    hasFlag("no-debug"),
+    assertEquals(true),
+  )([
+    Flag("input", ["i"], ParseString, Unspecial),
+    Flag("output", ["o"], ParseString, Unspecial),
+    Flag("json", ["I"], ParseBoolean, Unspecial),
+    Flag("path", ["p"], ParseBoolean, Unspecial),
+    Flag("debug", ["d"], ParseBoolean, Unspecial),
+    Flag("help", ["h"], ParseBoolean, Exclusive),
+  ])
+)
+
+test("hasInvalidFlags", () =>
+  pipe(
+    hasInvalidFlags,
+    assertEquals(true)
+  )(
+    [
+      Flag("help", ["h"], ParseBoolean, Exclusive),
+      Flag("h", ["hey"], ParseBoolean, Exclusive),
+    ]
+  )
+)
+
+test("rightApplyArgs - #[valid, raw]", () =>
+  pipe(
+    rightApplyArgs(InputValidFlag(Flag("input", ["i"], ParseString, Unspecial))),
+    assertEquals(
+      ConcreteStringFlag("input", "hooray.md")
+    )
+  )(InputRaw("hooray.md"))
+)
+
+test("rightApplyArgs - #[boolean, _]", () =>
+  pipe(
+    rightApplyArgs(InputValidFlag(Flag("debug", ["d"], ParseBoolean, Unspecial))),
+    assertEquals(
+      ConcreteBooleanFlag("debug", false)
+    )
+  )(Gap)
+)
+
+test("rightApplyArgs - #[invalid, _]", () =>
+  pipe(
+    rightApplyArgs(InputInvalidFlag("verbose")),
+    assertEquals(Garbage)
+  )(Gap)
+)
+
+test("rightApplyArgs - #[valid, _]", () =>
+  pipe(
+    rightApplyArgs(InputValidFlag("verbose", ["v"], ParseString, Unspecial)),
+    assertEquals(Garbage)
+  )(Gap)
+)
+
+test("applyParsedFlags - empty", () =>
+  pipe(
+    applyParsedFlags,
+    assertEquals([]) 
+  )([])
+)

@@ -1,0 +1,356 @@
+import { when, ifElse, always, equals, all } from "Function"
+import { lt } from "Compare"
+import { } from "Number"
+import { drop, contains, isEmpty, split, startsWith, join } from "String"
+import { reject, length, find, includes, uniqueBy, reduce, concat } from "List"
+import type {Either} from "Either"
+import type {Maybe} from "Maybe"
+import { Just, Nothing, fromMaybe } from "Maybe"
+import { Left, Right } from "Either"
+import { cond } from "./Function"
+import IO from "IO"
+
+export type MargsConfig flagmap input
+  = Config(flagmap, input)
+  | InvalidConfig(flagmap, input)
+  | UnknownConfig
+
+export type CommandFlag name aliases parseType special
+  = Flag(name, aliases, parseType, special)
+
+export type ParseType
+  = ParseInteger
+  | ParseFloat
+  | ParseBoolean
+  | ParseString
+
+export type SpecialType
+  = Ordered(Integer)
+  | Exclusive
+  | Accumulative
+  | Unspecial
+
+export alias MargsFlag = CommandFlag String (List String) ParseType SpecialType
+
+export type ParsedInput
+  = InputRaw(String)
+  | InputInvalidFlag(String)
+  | InputValidFlag(MargsFlag)
+  | Gap
+
+alias MargsFlags = List MargsFlag
+
+// export alias ParsedInput = ParsedInput String MargsFlag
+
+export type ConcreteExpression
+  = ConcreteStringFlag(String, String)
+  | ConcreteIntegerFlag(String, Integer)
+  | ConcreteBooleanFlag(String, Boolean)
+  | ConcreteFloatFlag(String, Float)
+  | InvalidFlag(String, String)
+  | Garbage
+
+alias ReadFlags = #[ MargsFlags, MargsFlags ]
+
+noFlagPrefix :: String -> String
+export noFlagPrefix = (x) => `no-${x}`
+
+stripNoPrefix :: String -> String
+export stripNoPrefix = when(
+  startsWith("no-"),
+  drop(3)
+)
+
+parseAsExclusive :: SpecialType -> Boolean
+export parseAsExclusive = where {
+  Exclusive => true
+  _ => false
+}
+
+parseAsExclusiveFlag :: MargsFlag -> Boolean
+export parseAsExclusiveFlag = where {
+  Flag(_, _, _, special) => parseAsExclusive(special)
+}
+
+parseAsBoolean :: ParseType -> Boolean
+export parseAsBoolean = where {
+  ParseBoolean => true
+  _ => false
+}
+
+parseAsString :: ParseType -> Boolean
+export parseAsString = where {
+  ParseString => true
+  _ => false
+}
+
+parseAsInteger :: ParseType -> Boolean
+export parseAsInteger = where {
+  ParseInteger => true
+  _ => false
+}
+
+parseAsFloat :: ParseType -> Boolean
+export parseAsFloat = where {
+  ParseFloat => true
+  _ => false
+}
+
+parseAsNumber :: ParseType -> Boolean
+export parseAsNumber = where {
+  ParseInteger => true
+  ParseFloat => true
+  _ => false
+}
+
+parseAsBooleanFlag :: MargsFlag -> Boolean
+export parseAsBooleanFlag = where {
+  Flag(_, _, pt, _) => parseAsBoolean(pt) 
+}
+
+parseAsIntegerFlag :: MargsFlag -> Boolean
+export parseAsIntegerFlag = where {
+  Flag(_, _, pt, _) => parseAsInteger(pt) 
+}
+
+parseAsFloatFlag :: MargsFlag -> Boolean
+export parseAsFloatFlag = where {
+  Flag(_, _, pt, _) => parseAsFloat(pt) 
+}
+
+flagName :: MargsFlag -> String
+export flagName = (flag) => where (flag) {
+  Flag(name, _, _, _) => name
+}
+
+getAllFlags :: MargsFlags -> List String
+export getAllFlags = pipe(
+  reduce((agg, x) => where (x) {
+    Flag(name, aliases, parseType, special) => do {
+      list = concat(aliases, [name])
+      fullList = !parseAsExclusive(special) && parseAsBoolean(parseType)
+        ? concat(list, map(noFlagPrefix)(list))
+        : list
+      return concat(agg, fullList)
+    }
+  }, []),
+  uniqueBy(equals)
+)
+
+hasFlag :: String -> MargsFlags -> Boolean
+export hasFlag = (x, flags) => pipe(
+  getAllFlags,
+  includes(x)
+)(flags)
+
+findFlag :: String -> MargsFlags -> Maybe MargsFlag
+export findFlag = (x, flags) => find(
+  where {
+    Flag(name, aliases, pt, special) => do {
+      stripped = stripNoPrefix(x)
+      return equals(stripped, name) || includes(stripped, aliases)
+    }
+  }
+)(flags)
+
+excludes :: Eq a => a -> List a -> Boolean
+export excludes = (a, xs) => !includes(a, xs)
+
+validateFlag :: MargsFlags -> MargsFlag -> Boolean
+export validateFlag = (flags, flag) => pipe(
+  getAllFlags,
+  (rawFlags) => where (flag) {
+    Flag(name, aliases, t, s) => (
+      excludes(name, aliases) &&
+      excludes(name, rawFlags) &&
+      all(excludes($, rawFlags), aliases)
+    )
+  }
+)(flags)
+
+readFlags :: MargsFlags -> ReadFlags
+export readFlags = (list) => pipe(
+  reduce(
+    (agg, flag) => where (agg) {
+      #[invalid, valid] => do {
+        isValid = validateFlag(valid, flag)
+        return #[
+          !isValid ? concat(invalid, [flag]) : invalid,
+          isValid ? concat(valid, [flag]) : valid,
+        ]
+      }
+    },
+    #[[], []]
+  )
+)(list)
+
+hasReadInvalidFlags :: ReadFlags -> Boolean
+export hasReadInvalidFlags = (
+  where {
+    #[invalid, valid] => pipe(length, lt(0))(invalid)
+  }
+)
+  
+hasInvalidFlags :: MargsFlags -> Boolean
+export hasInvalidFlags = pipe(
+  readFlags,
+  hasReadInvalidFlags
+)
+
+summarizeFlag :: MargsFlag -> String
+export summarizeFlag = where {
+  Flag(name, aliases, _, _) => `Flag(${name}::${join(":", aliases)})`
+}
+
+hasShortFlag :: String -> Boolean
+export hasShortFlag = startsWith("-")
+
+hasLongFlag :: String -> Boolean
+export hasLongFlag = startsWith("--")
+
+stripHyphens :: String -> String
+export stripHyphens = when(
+  hasShortFlag,
+  ifElse(
+    hasLongFlag,
+    drop(2),
+    drop(1)
+  ),
+)
+  
+cleanFlag :: String -> String
+export cleanFlag = pipe(
+  when(hasShortFlag, stripHyphens),
+  stripNoPrefix
+)
+
+lookupFlag :: String -> MargsFlags -> ParsedInput
+export lookupFlag = (f, flags) => pipe(
+  findFlag(cleanFlag(f)),
+  map(InputValidFlag),
+  fromMaybe(
+    ifElse(
+      hasShortFlag,
+      InputInvalidFlag,
+      InputRaw
+    )(f)
+  )
+)(flags)
+
+parsify :: String -> MargsFlags -> List ParsedInput
+parsify = (input, flags) => {
+  lookupXFlag = lookupFlag($, flags)
+  return pipe(
+    split(" "),
+    reject(isEmpty),
+    reduce((agg, f) => pipe(
+      ifElse(
+        contains("="),
+        pipe(
+          split("="),
+          map(lookupXFlag)
+        ),
+        pipe(
+          lookupXFlag,
+          of 
+        )
+      ),
+      concat(agg)
+    )(f), []),
+    IO.trace("what?")
+  )(input)
+}
+
+booleanFromString :: String -> Boolean
+booleanFromString = pipe(
+  cond([
+    #[equals("true"), always(true)],
+    #[equals("1"), always(true)],
+    #[equals("false"), always(false)],
+    #[equals("0"), always(false)],
+  ]),
+  fromMaybe(false)
+)
+
+quikrete :: MargsFlag -> String -> ConcreteExpression
+quikrete = (flag, value) => pipe(
+  cond([
+    #[ parseAsBooleanFlag,
+       pipe(flagName, ConcreteBooleanFlag($, booleanFromString(value)))
+    ],
+    #[ parseAsIntegerFlag,
+       pipe(flagName, ConcreteIntegerFlag($, pipe(scan, fromMaybe(0))(value)))
+    ],
+    #[ parseAsFloatFlag,
+       pipe(flagName, ConcreteFloatFlag($, pipe(scan, fromMaybe(0.0))(value)))
+    ],
+    #[ always(true),
+       pipe(flagName, ConcreteStringFlag($, value))
+    ],
+  ]),
+  fromMaybe(Garbage)
+)(flag)
+
+rightApplyArgs :: ParsedInput -> ParsedInput -> ConcreteExpression 
+export rightApplyArgs = (prev, current) => pipe(
+  where {
+    #[InputValidFlag(flag), InputRaw(value)] => quikrete(
+      flag,
+      value
+    )
+    #[InputValidFlag(Flag(n, a, p, s)), _] => parseAsBoolean(p)
+      ? quikrete(Flag(n, a, p, s), startsWith("no-", n) ? "true" : "false")
+      : Garbage
+    #[InputInvalidFlag(name), InputRaw(value)] => InvalidFlag(name, value)
+    #[_, _] => Garbage
+  },
+)(#[prev, current])
+
+applyParsedFlags :: List ParsedInput -> List ConcreteExpression
+export applyParsedFlags = (pFlags) => pipe(
+  where {
+    [] => ({stack: [], active: Gap })
+    [x, ...xs] => reduce(
+      (agg, i) => ({
+        stack: pipe(
+          rightApplyArgs(agg.active),
+          of,
+          concat(agg.stack)
+        )(i),
+        active: i
+      }),
+      {
+        stack: [],
+        active: x
+      }
+    )(xs)
+  },
+  .stack,
+  reject(where {
+    Garbage => true
+    _ => false
+  })
+)(pFlags)
+
+parser :: MargsFlags -> String -> String
+export parser = (conf, input) => pipe(
+  readFlags,
+  ifElse(
+    hasReadInvalidFlags,
+    where {
+      #[bad, _] => `Invalid:\n  - ${pipe(map(summarizeFlag), join("\n  - "))(bad)}`
+    },
+    where {
+      #[_, good] => pipe(
+        IO.trace(`MargsConfig({\n  flags: [\n    ${pipe(map(summarizeFlag), join(",\n    "))(good)}\n  ]\n})`),
+        parsify(input),
+        (w) => {
+          IO.trace("-->", applyParsedFlags(w))
+          return w
+        },
+        always("temp temp") 
+      )(good)
+    },
+  ),
+  IO.trace("normcore flag"),
+)(conf)

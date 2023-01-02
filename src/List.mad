@@ -1,0 +1,38 @@
+import { last, concat, length, reduce, range, slice } from "List"
+import { fromMaybe } from "Maybe"
+import { floatToInteger } from "Number"
+import Math from "Math"
+
+splitAt :: Integer -> List a -> List( List a)
+export splitAt = (x, list) => [
+  slice(0, x, list),
+  slice(x, length(list), list)
+]
+
+splitEvery :: Integer -> List a -> List( List a )
+export splitEvery = (cut, list) =>
+  pipe(
+    length,
+    (x) => Math.ceil(x / cut),
+    floatToInteger,
+    range(0),
+    map((x) => x * cut),
+    slice(1, length(list)),
+    (l) => pipe(
+      last,
+      map((z) => z + cut),
+      fromMaybe(length(list) + 1),
+      of,
+      concat(l),
+    )(l),
+    reduce(
+      (agg, x) => pipe(
+        slice(agg.count, $, list),
+        of,
+        concat(agg.list),
+        (l) => ({ count: x, list: l })
+      )(x),
+      {count: 0, list: []}
+    ),
+    .list
+  )(list)

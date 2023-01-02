@@ -1,0 +1,27 @@
+import IO from "IO"
+import { concat } from "List"
+import String from "String"
+import { ConcreteStringFlag, ConcreteIntegerFlag, ConcreteFloatFlag, ConcreteBooleanFlag, InvalidFlag, Garbage, Flag, ParseString, ParseBoolean, Exclusive, Unspecial, parser } from "./Marge"
+
+main = () => {
+  parser([
+    Flag("input", ["i"], ParseString, Unspecial),
+    Flag("output", ["o"], ParseString, Unspecial),
+    Flag("json", ["I"], ParseBoolean, Unspecial),
+    Flag("debug", ["d"], ParseBoolean, Unspecial),
+    Flag("help", ["h"], ParseBoolean, Exclusive),
+    // Flag("hhhhhhh", ["help", "e", "dope"], ParseBoolean, Exclusive)
+  ], "-i input.file -o output.file --debug") |> IO.trace("what is this?")
+  x = true
+  where (x) {
+    Boolean => "test"
+    _ => "shit"
+  } |> IO.trace("hmmm")
+  [
+    ConcreteStringFlag("nice", "cool"),
+    ConcreteBooleanFlag("debug", true),
+    ConcreteFloatFlag("hey", 3.14),
+    ConcreteIntegerFlag("size", 42),
+    Garbage
+  ] |> IO.trace("A list!")
+}
