@@ -200,7 +200,7 @@ test("rightApplyArgs - #[invalid, _]", () =>
 
 test("rightApplyArgs - #[valid, _]", () =>
   pipe(
-    rightApplyArgs(InputValidFlag("verbose", ["v"], ParseString, Unspecial)),
+    rightApplyArgs(InputValidFlag(Flag("verbose", ["v"], ParseString, Unspecial))),
     assertEquals(Garbage)
   )(Gap)
 )
