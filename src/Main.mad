@@ -1,5 +1,8 @@
+import Dict from "Dictionary"
+import { Left, Right } from "Either"
 import IO from "IO"
 import { concat } from "List"
+import { fromMaybe } from "Maybe"
 import String from "String"
 
 import { parser } from "./Margs"
@@ -10,6 +13,7 @@ import {
   ConcreteStringFlag,
   Garbage,
   InvalidFlag,
+  stringValue,
 } from "@/Concrete"
 import { Flag } from "@/Flag"
 import { Exclusive, ParseBoolean, ParseString, Unspecial } from "@/Parse"
@@ -23,9 +27,29 @@ definition = [
   Flag("debug", ["d"], ParseBoolean, Unspecial),
   Flag("help", ["h"], ParseBoolean, Exclusive),
 ]
+parsy = where {
+  Left(raw) =>
+    Left(raw)
+
+  Right(dict) =>
+    do {
+      get = pipe(
+        Dict.get($, dict),
+        map(stringValue),
+        fromMaybe("MARGS_NON_STRING"),
+      )
+      input = get("input")
+      output = get("output")
+      return Right({ input, output })
+    }
+}
+
 
 main = () => {
-  myCLI = parser(definition)
+  myCLI = (x) => pipe(
+    parser(definition),
+    parsy,
+  )(x)
   myCLI("-i input.file -o output.file --debug") |> IO.pTrace("VALID?")
   myCLI("--grabor pewpewpew and then -x -x -x") |> IO.pTrace("INVALID?")
   // x = true

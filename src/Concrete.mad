@@ -58,6 +58,27 @@ export id = where {
     (x)
 }
 
+stringValue :: ConcreteExpression -> String
+export stringValue = where {
+  ConcreteStringFlag(_, x) =>
+    x
+
+  ConcreteFloatFlag(_, x) =>
+    show(x)
+
+  ConcreteBooleanFlag(_, x) =>
+    show(x)
+
+  ConcreteIntegerFlag(_, x) =>
+    show(x)
+
+  InvalidFlag(_, x) =>
+    x
+
+  _ =>
+    "MARGS_NON_STRING"
+}
+
 lookupFlag :: String -> CommandFlags -> ParsedInput
 export lookupFlag = (f, flags) => pipe(
   Flag.findFlag(MargString.cleanFlag(f)),
@@ -198,6 +219,9 @@ export parseDictionary = (input, x) => pipe(
   log.concrete("applied"),
   Fn.ifElse(
     List.any(isBad),
+    // in order to unify downstream, we're converting the list of expressions
+    // into a Left of one string
+    // but likely this should be changed in the future
     pipe(
       map(show),
       String.unlines,
