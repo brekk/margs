@@ -1,6 +1,6 @@
 {
-  "name": "margs",
-  "version": "0.0.1",
+  "name": "Margs",
+  "version": "0.0.2",
   "main": "src/Margs.mad",
   "dependencies": [
     {
