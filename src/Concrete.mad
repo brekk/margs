@@ -5,6 +5,7 @@ import type { CommandFlag, CommandFlags, ReadFlags } from "@/Flag"
 import type { ParseType, SpecialType } from "@/Parse"
 
 import { lt } from "Compare"
+import Dict from "Dictionary"
 import { Left, Right } from "Either"
 import Float from "Float"
 import Fn from "Function"
@@ -16,6 +17,7 @@ import {} from "Scan"
 import String from "String"
 
 import Flag from "@/Flag"
+import { log } from "@/Log"
 import Parse from "@/Parse"
 import MargString from "@/String"
 
@@ -35,7 +37,26 @@ export type ConcreteExpression
   | InvalidFlag(String, String)
   | Garbage
 
+id :: ConcreteExpression -> String
+export id = where {
+  Garbage =>
+    "MARGS_GARBAGE_EXPRESSION"
 
+  InvalidFlag(x, _) =>
+    x
+
+  ConcreteFloatFlag(x, _) =>
+    (x)
+
+  ConcreteBooleanFlag(x, _) =>
+    (x)
+
+  ConcreteIntegerFlag(x, _) =>
+    (x)
+
+  ConcreteStringFlag(x, _) =>
+    (x)
+}
 
 lookupFlag :: String -> CommandFlags -> ParsedInput
 export lookupFlag = (f, flags) => pipe(
@@ -67,7 +88,6 @@ export parsify = (input, flags) => {
       )(f),
       [],
     ),
-    IO.trace("what?"),
   )(input)
 }
 
@@ -99,13 +119,24 @@ quikrete = (flag, value) => {
 }
 
 isGarbage :: ConcreteExpression -> Boolean
-isGarbage = (x) => where(x) {
+export isGarbage = where {
   Garbage =>
     true
 
   _ =>
     false
 }
+
+isInvalid :: ConcreteExpression -> Boolean
+export isInvalid = where {
+  InvalidFlag(_, _) =>
+    true
+
+  _ =>
+    false
+}
+
+isBad = Fn.either(isGarbage, isInvalid)
 
 rightApplyArgs :: ParsedInput -> ParsedInput -> ConcreteExpression
 export rightApplyArgs = (prev, current) => pipe(
@@ -139,8 +170,7 @@ export applyParsedFlags = (pFlags) => pipe(
           {
             stack: pipe(
               rightApplyArgs(agg.active),
-              of,
-              List.concat(agg.stack),
+              List.append($, agg.stack),
             )(i),
             active: i,
           }
@@ -151,3 +181,31 @@ export applyParsedFlags = (pFlags) => pipe(
   .stack,
   List.reject(isGarbage),
 )(pFlags)
+
+toDictionary :: List ConcreteExpression -> Dictionary String ConcreteExpression
+export toDictionary = List.reduce(
+  (dict, exp) => isBad(exp) ? dict : Dict.insert(id(exp), exp, dict),
+  Dict.empty,
+)
+
+// parseDictionary :: String
+//   -> List CommandFlag
+//   -> Either (List ConcreteExpression) (Dictionary String ConcreteExpression)
+export parseDictionary = (input, x) => pipe(
+  parsify(input),
+  log.concrete("parsed"),
+  applyParsedFlags,
+  log.concrete("applied"),
+  Fn.ifElse(
+    List.any(isBad),
+    pipe(
+      map(show),
+      String.unlines,
+      Left,
+    ),
+    pipe(
+      toDictionary,
+      Right,
+    ),
+  ),
+)(x)

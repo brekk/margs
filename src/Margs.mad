@@ -1,6 +1,7 @@
 import type { Either } from "Either"
 import type { Maybe } from "Maybe"
 
+import type { ConcreteExpression } from "@/Concrete"
 import type { CommandFlag, CommandFlags, ReadFlags } from "@/Flag"
 import type { ParseType, SpecialType } from "@/Parse"
 
@@ -17,6 +18,7 @@ import String from "String"
 
 import Concrete from "@/Concrete"
 import Flag from "@/Flag"
+import { log } from "@/Log"
 import Parse from "@/Parse"
 import MargString from "@/String"
 
@@ -28,44 +30,25 @@ export type MargsConfig flagmap input
   | UnknownConfig
 
 
-parser :: CommandFlags -> String -> String
+// parser :: CommandFlags -> String -> Either String (Dictionary String ConcreteExpression)
 export parser = (conf, input) => pipe(
+  log.core("config"),
   Flag.readFlags,
   Fn.ifElse(
-    Flag.hasReadInvalidFlags,
+    Flag.hasInvalidDefinition,
     where {
       #[bad, _] =>
-        `Invalid:
-  - ${
-          pipe(
-            map(Flag.summarizeFlag),
-            String.join("\n  - "),
-          )(bad)
-        }`
+        pipe(
+          map(Flag.summarizeFlag),
+          String.join("\n  - "),
+          Left,
+        )(bad)
     },
     where {
       #[_, good] =>
         pipe(
-          IO.trace(
-            `MargsConfig({
-  flags: [
-    ${
-              pipe(
-                map(Flag.summarizeFlag),
-                String.join(",\n    "),
-              )(good)
-            }
-  ]
-})`,
-          ),
-          Concrete.parsify(input),
-          (w) => {
-            IO.trace("-->", Concrete.applyParsedFlags(w))
-            return w
-          },
-          Fn.always("temp temp"),
+          Concrete.parseDictionary(input),
         )(good)
     },
   ),
-  IO.trace("normcore flag"),
 )(conf)

@@ -16,19 +16,18 @@ import { Exclusive, ParseBoolean, ParseString, Unspecial } from "@/Parse"
 
 
 
+definition = [
+  Flag("input", ["i"], ParseString, Unspecial),
+  Flag("output", ["o"], ParseString, Unspecial),
+  Flag("json", ["I"], ParseBoolean, Unspecial),
+  Flag("debug", ["d"], ParseBoolean, Unspecial),
+  Flag("help", ["h"], ParseBoolean, Exclusive),
+]
+
 main = () => {
-  parser(
-    [
-      Flag("input", ["i"], ParseString, Unspecial),
-      Flag("output", ["o"], ParseString, Unspecial),
-      Flag("json", ["I"], ParseBoolean, Unspecial),
-      Flag("debug", ["d"], ParseBoolean, Unspecial),
-      Flag("help", ["h"], ParseBoolean, Exclusive),
-    // Flag("hhhhhhh", ["help", "e", "dope"], ParseBoolean, Exclusive)
-    ],
-    "-i input.file -o output.file --debug",
-  )
-    |> IO.pTrace("what is this?")
+  myCLI = parser(definition)
+  myCLI("-i input.file -o output.file --debug") |> IO.pTrace("VALID?")
+  myCLI("--grabor pewpewpew and then -x -x -x") |> IO.pTrace("INVALID?")
   // x = true
   // where(x) { Boolean => "test"_ => "shit" } |> IO.trace("hmmm")
   [

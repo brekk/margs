@@ -1,0 +1,25 @@
+import { env, tag, tagWithScope } from "PartyBus"
+
+
+
+LIB = "margs"
+
+export TAGS = {
+  core: tag(LIB),
+  parse: tagWithScope(LIB, ["parse"]),
+  flag: tagWithScope(LIB, ["flag"]),
+  concrete: tagWithScope(LIB, ["concrete"]),
+  info: tagWithScope(LIB, ["info"]),
+  detail: tagWithScope(LIB, ["detail"]),
+  verbose: tagWithScope(LIB, ["verbose"]),
+}
+
+export log = {
+  core: env(TAGS.core),
+  concrete: env(TAGS.concrete),
+  parse: env(TAGS.parse),
+  flag: env(TAGS.flag),
+  info: env(TAGS.info),
+  detail: env(TAGS.detail),
+  verbose: env(TAGS.verbose),
+}

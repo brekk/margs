@@ -120,8 +120,8 @@ export readFlags = (list) => pipe(
         do {
           isValid = validateFlag(valid, flag)
           return #[
-            !isValid ? List.concat(invalid, [flag]) : invalid,
-            isValid ? List.concat(valid, [flag]) : valid,
+            !isValid ? List.append(flag, invalid) : invalid,
+            isValid ? List.append(flag, valid) : valid,
           ]
         }
     },
@@ -129,8 +129,8 @@ export readFlags = (list) => pipe(
   ),
 )(list)
 
-hasReadInvalidFlags :: ReadFlags -> Boolean
-export hasReadInvalidFlags = (
+hasInvalidDefinition :: ReadFlags -> Boolean
+export hasInvalidDefinition = (
   where {
     #[invalid, valid] =>
       pipe(
@@ -143,7 +143,7 @@ export hasReadInvalidFlags = (
 hasInvalidFlags :: CommandFlags -> Boolean
 export hasInvalidFlags = pipe(
   readFlags,
-  hasReadInvalidFlags,
+  hasInvalidDefinition,
 )
 
 summarizeFlag :: CommandFlag -> String
