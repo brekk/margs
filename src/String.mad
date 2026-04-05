@@ -2,7 +2,9 @@ import Fn from "Function"
 import { fromMaybe } from "Maybe"
 import String from "String"
 
-import { cond } from "@/Function"
+
+
+// import { cond } from "@/Function"
 
 
 
@@ -31,12 +33,4 @@ export cleanFlag = pipe(
 
 
 toBoolean :: String -> Boolean
-export toBoolean = pipe(
-  cond([
-    #[Fn.equals("true"), Fn.always(true)],
-    #[Fn.equals("1"), Fn.always(true)],
-    #[Fn.equals("false"), Fn.always(false)],
-    #[Fn.equals("0"), Fn.always(false)],
-  ]),
-  fromMaybe(false),
-)
+export toBoolean = (x) => (x == "true" || x == "1")

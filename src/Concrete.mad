@@ -16,7 +16,6 @@ import {} from "Scan"
 import String from "String"
 
 import Flag from "@/Flag"
-import { cond } from "@/Function"
 import Parse from "@/Parse"
 import MargString from "@/String"
 
@@ -74,54 +73,33 @@ export parsify = (input, flags) => {
 
 
 quikrete :: CommandFlag -> String -> ConcreteExpression
-quikrete = (flag, value) => pipe(
-  cond([
-    #[
-      Flag.parseBoolean,
+quikrete = (flag, value) => {
+  name = Flag.flagName(flag)
+  return if (Flag.parseBoolean(flag)) {
+    ConcreteBooleanFlag(name, MargString.toBoolean(value))
+  } else if (Flag.parseInteger(flag)) {
+    ConcreteIntegerFlag(
+      name,
       pipe(
-        Flag.flagName,
-        ConcreteBooleanFlag($, MargString.toBoolean(value)),
-      ),
-    ],
-    #[
-      Flag.parseInteger,
+        scan,
+        fromMaybe(0),
+      )(value),
+    )
+  } else if (Flag.parseFloat(flag)) {
+    ConcreteFloatFlag(
+      name,
       pipe(
-        Flag.flagName,
-        ConcreteIntegerFlag(
-          $,
-          pipe(
-            scan,
-            fromMaybe(0),
-          )(value),
-        ),
-      ),
-    ],
-    #[
-      Flag.parseFloat,
-      pipe(
-        Flag.flagName,
-        ConcreteFloatFlag(
-          $,
-          pipe(
-            scan,
-            fromMaybe(0.0),
-          )(value),
-        ),
-      ),
-    ],
-    #[
-      Fn.always(true),
-      pipe(
-        Flag.flagName,
-        ConcreteStringFlag($, value),
-      ),
-    ],
-  ]),
-  fromMaybe(Garbage),
-)(flag)
+        scan,
+        fromMaybe(0.0),
+      )(value),
+    )
+  } else {
+    ConcreteStringFlag(name, value)
+  }
+}
 
-garbageOnly :: ConcreteExpression -> Boolean
-garbageOnly = (x) => where(x) {
+isGarbage :: ConcreteExpression -> Boolean
+isGarbage = (x) => where(x) {
   Garbage =>
     true
 
@@ -171,5 +149,5 @@ export applyParsedFlags = (pFlags) => pipe(
       )(xs)
   },
   .stack,
-  List.reject(garbageOnly),
+  List.reject(isGarbage),
 )(pFlags)

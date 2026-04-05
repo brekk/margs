@@ -14,7 +14,6 @@ import {} from "Number"
 import {} from "Scan"
 import String from "String"
 
-import { cond } from "@/Function"
 import Parse from "@/Parse"
 import MargString from "@/String"
 
