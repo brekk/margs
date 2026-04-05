@@ -5,12 +5,13 @@ import {} from "Scan"
 import String from "String"
 
 import Concrete from "@/Concrete"
-import Flag from "@/Flag"
+import F from "@/Flag"
 import { log } from "@/Log"
 import Parse from "@/Parse"
 
 
 
+export Flag = F.Flag
 export ConcreteBooleanFlag = Concrete.ConcreteBooleanFlag
 export ConcreteFloatFlag = Concrete.ConcreteFloatFlag
 export ConcreteIntegerFlag = Concrete.ConcreteIntegerFlag
@@ -34,13 +35,13 @@ export type MargsConfig flagmap input
 // parser :: CommandFlags -> String -> Either String (Dictionary String ConcreteExpression)
 export parser = (conf, input) => pipe(
   log.core("config"),
-  Flag.readFlags,
+  F.readFlags,
   Fn.ifElse(
-    Flag.hasInvalidDefinition,
+    F.hasInvalidDefinition,
     where {
       #[bad, _] =>
         pipe(
-          map(Flag.summarizeFlag),
+          map(F.summarizeFlag),
           String.join("\n  - "),
           Left,
         )(bad)
