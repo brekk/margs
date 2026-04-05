@@ -1,7 +1,7 @@
 {
   "name": "margs",
   "version": "0.0.1",
-  "main": "src/Main.mad",
+  "main": "src/Margs.mad",
   "dependencies": [
     {
       "url": "https://github.com/brekk/study/archive/refs/tags/v0.0.3.zip",
