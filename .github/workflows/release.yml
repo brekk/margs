@@ -1,0 +1,37 @@
+name: Publish new version
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish ( ex: v0.0.1 )'
+        required: true
+
+env:
+  node-version: 20.x
+
+
+jobs:
+  check-version:
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v2
+        - run: |
+            MADLIB_PKG_VERSION="v$(cat madlib.json | grep version | cut -d":" -f2 | cut -d"\"" -f2)"
+            TAG_NAME=${{ github.event.inputs.version }}
+            if [ "$TAG_NAME" = "$MADLIB_PKG_VERSION" ]; then
+              echo "Versions match"
+            else
+              echo "Versions in madlib.json is not ${TAG_NAME}"
+              exit 1
+            fi
+
+  release:
+    permissions:
+      contents: write
+    needs: check-version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: madlib-lang/action-publish@main
+        with:
+          version: ${{ github.event.inputs.version }}

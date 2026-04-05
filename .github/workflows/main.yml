@@ -1,0 +1,19 @@
+name: Test Madlib Project
+
+# on: [push, workflow_dispatch]
+on: [workflow_dispatch]
+    
+env:
+  node-version: 20.x
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 😈 Building and testing Madlib project...
+        uses: madlib-lang/action-build@main
+        with:
+          madlibVersion: 0.23.14
+          coverage: true
+          testLLVM: true
+          testJS: true
