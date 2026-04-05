@@ -1,3 +1,5 @@
 build
 .coverage
 .tests
+.module_cache
+madlib_modules

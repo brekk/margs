@@ -1,0 +1,154 @@
+import type { Either } from "Either"
+import type { Maybe } from "Maybe"
+
+import type { ParseType, SpecialType } from "@/Parse"
+
+import { lt } from "Compare"
+import { Left, Right } from "Either"
+import Float from "Float"
+import Fn from "Function"
+import IO from "IO"
+import List from "List"
+import { Just, Nothing, fromMaybe } from "Maybe"
+import {} from "Number"
+import {} from "Scan"
+import String from "String"
+
+import { cond } from "@/Function"
+import Parse from "@/Parse"
+import MargString from "@/String"
+
+
+
+export type CommandFlag = Flag(String, List String, ParseType, SpecialType)
+
+
+export alias CommandFlags = List CommandFlag
+
+// export alias ParsedInput = ParsedInput String CommandFlag
+
+
+export alias ReadFlags = #[CommandFlags, CommandFlags]
+
+
+parseExclusive :: CommandFlag -> Boolean
+export parseExclusive = where {
+  Flag(_, _, _, special) =>
+    Parse.asExclusive(special)
+}
+
+parseBoolean :: CommandFlag -> Boolean
+export parseBoolean = where {
+  Flag(_, _, pt, _) =>
+    Parse.asBoolean(pt)
+}
+
+parseInteger :: CommandFlag -> Boolean
+export parseInteger = where {
+  Flag(_, _, pt, _) =>
+    Parse.asInteger(pt)
+}
+
+parseFloat :: CommandFlag -> Boolean
+export parseFloat = where {
+  Flag(_, _, pt, _) =>
+    Parse.asFloat(pt)
+}
+
+
+flagName :: CommandFlag -> String
+export flagName = (flag) => where(flag) {
+  Flag(name, _, _, _) =>
+    name
+}
+
+getAllFlags :: CommandFlags -> List String
+export getAllFlags = pipe(
+  List.reduce(
+    (agg, x) => where(x) {
+      Flag(name, aliases, parseType, special) =>
+        do {
+          list = List.concat(aliases, [name])
+          fullList = !Parse.asExclusive(special) && Parse.asBoolean(parseType)
+            ? List.concat(list, map(MargString.noFlagPrefix)(list))
+            : list
+          return List.concat(agg, fullList)
+        }
+    },
+    [],
+  ),
+  List.uniqueBy(Fn.equals),
+)
+
+hasFlag :: String -> CommandFlags -> Boolean
+export hasFlag = (x, flags) => pipe(
+  getAllFlags,
+  List.includes(x),
+)(flags)
+
+findFlag :: String -> CommandFlags -> Maybe CommandFlag
+export findFlag = (x, flags) => List.find(
+  where {
+    Flag(name, aliases, pt, special) =>
+      do {
+        stripped = MargString.stripNoPrefix(x)
+        return Fn.equals(stripped, name) || List.includes(stripped, aliases)
+      }
+  },
+)(flags)
+
+excludes :: Eq a => a -> List a -> Boolean
+export excludes = (a, xs) => !List.includes(a, xs)
+
+validateFlag :: CommandFlags -> CommandFlag -> Boolean
+export validateFlag = (flags, flag) => pipe(
+  getAllFlags,
+  (rawFlags) => where(flag) {
+    Flag(name, aliases, t, s) =>
+      (
+        excludes(name, aliases)
+          && excludes(name, rawFlags)
+          && List.all(excludes($, rawFlags), aliases)
+      )
+  },
+)(flags)
+
+readFlags :: CommandFlags -> ReadFlags
+export readFlags = (list) => pipe(
+  List.reduce(
+    (agg, flag) => where(agg) {
+      #[invalid, valid] =>
+        do {
+          isValid = validateFlag(valid, flag)
+          return #[
+            !isValid ? List.concat(invalid, [flag]) : invalid,
+            isValid ? List.concat(valid, [flag]) : valid,
+          ]
+        }
+    },
+    #[[], []],
+  ),
+)(list)
+
+hasReadInvalidFlags :: ReadFlags -> Boolean
+export hasReadInvalidFlags = (
+  where {
+    #[invalid, valid] =>
+      pipe(
+        List.length,
+        lt(0),
+      )(invalid)
+  }
+)
+
+hasInvalidFlags :: CommandFlags -> Boolean
+export hasInvalidFlags = pipe(
+  readFlags,
+  hasReadInvalidFlags,
+)
+
+summarizeFlag :: CommandFlag -> String
+export summarizeFlag = where {
+  Flag(name, aliases, _, _) =>
+    `Flag(${name}::${String.join(":", aliases)})`
+}

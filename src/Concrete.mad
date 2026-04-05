@@ -1,0 +1,175 @@
+import type { Either } from "Either"
+import type { Maybe } from "Maybe"
+
+import type { CommandFlag, CommandFlags, ReadFlags } from "@/Flag"
+import type { ParseType, SpecialType } from "@/Parse"
+
+import { lt } from "Compare"
+import { Left, Right } from "Either"
+import Float from "Float"
+import Fn from "Function"
+import IO from "IO"
+import List from "List"
+import { Just, Nothing, fromMaybe } from "Maybe"
+import {} from "Number"
+import {} from "Scan"
+import String from "String"
+
+import Flag from "@/Flag"
+import { cond } from "@/Function"
+import Parse from "@/Parse"
+import MargString from "@/String"
+
+
+
+export type ParsedInput
+  = InputRaw(String)
+  | InputInvalidFlag(String)
+  | InputValidFlag(CommandFlag)
+  | Gap
+
+export type ConcreteExpression
+  = ConcreteStringFlag(String, String)
+  | ConcreteIntegerFlag(String, Integer)
+  | ConcreteBooleanFlag(String, Boolean)
+  | ConcreteFloatFlag(String, Float)
+  | InvalidFlag(String, String)
+  | Garbage
+
+
+
+lookupFlag :: String -> CommandFlags -> ParsedInput
+export lookupFlag = (f, flags) => pipe(
+  Flag.findFlag(MargString.cleanFlag(f)),
+  map(InputValidFlag),
+  fromMaybe(Fn.ifElse(MargString.hasShortFlag, InputInvalidFlag, InputRaw)(f)),
+)(flags)
+
+parsify :: String -> CommandFlags -> List ParsedInput
+export parsify = (input, flags) => {
+  lookupXFlag = lookupFlag($, flags)
+  return pipe(
+    String.split(" "),
+    List.reject(String.isEmpty),
+    List.reduce(
+      (agg, f) => pipe(
+        Fn.ifElse(
+          String.contains("="),
+          pipe(
+            String.split("="),
+            map(lookupXFlag),
+          ),
+          pipe(
+            lookupXFlag,
+            of,
+          ),
+        ),
+        List.concat(agg),
+      )(f),
+      [],
+    ),
+    IO.trace("what?"),
+  )(input)
+}
+
+
+quikrete :: CommandFlag -> String -> ConcreteExpression
+quikrete = (flag, value) => pipe(
+  cond([
+    #[
+      Flag.parseBoolean,
+      pipe(
+        Flag.flagName,
+        ConcreteBooleanFlag($, MargString.toBoolean(value)),
+      ),
+    ],
+    #[
+      Flag.parseInteger,
+      pipe(
+        Flag.flagName,
+        ConcreteIntegerFlag(
+          $,
+          pipe(
+            scan,
+            fromMaybe(0),
+          )(value),
+        ),
+      ),
+    ],
+    #[
+      Flag.parseFloat,
+      pipe(
+        Flag.flagName,
+        ConcreteFloatFlag(
+          $,
+          pipe(
+            scan,
+            fromMaybe(0.0),
+          )(value),
+        ),
+      ),
+    ],
+    #[
+      Fn.always(true),
+      pipe(
+        Flag.flagName,
+        ConcreteStringFlag($, value),
+      ),
+    ],
+  ]),
+  fromMaybe(Garbage),
+)(flag)
+
+garbageOnly :: ConcreteExpression -> Boolean
+garbageOnly = (x) => where(x) {
+  Garbage =>
+    true
+
+  _ =>
+    false
+}
+
+rightApplyArgs :: ParsedInput -> ParsedInput -> ConcreteExpression
+export rightApplyArgs = (prev, current) => pipe(
+  where {
+    #[InputValidFlag(flag), InputRaw(value)] =>
+      quikrete(flag, value)
+
+    #[InputValidFlag(Flag.Flag(n, a, p, s)), _] =>
+      Parse.asBoolean(p)
+        ? quikrete(Flag(n, a, p, s), String.startsWith("no-", n) ? "true" : "false")
+        : Garbage
+
+    #[InputInvalidFlag(name), InputRaw(value)] =>
+      InvalidFlag(name, value)
+
+    #[_, _] =>
+      Garbage
+  },
+)(#[prev, current])
+
+
+applyParsedFlags :: List ParsedInput -> List ConcreteExpression
+export applyParsedFlags = (pFlags) => pipe(
+  where {
+    [] =>
+      ({ stack: [], active: Gap })
+
+    [x, ...xs] =>
+      List.reduce(
+        (agg, i) => (
+          {
+            stack: pipe(
+              rightApplyArgs(agg.active),
+              of,
+              List.concat(agg.stack),
+            )(i),
+            active: i,
+          }
+        ),
+        { stack: [], active: x },
+      )(xs)
+  },
+  .stack,
+  List.reject(garbageOnly),
+)(pFlags)

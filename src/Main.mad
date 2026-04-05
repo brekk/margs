@@ -2,20 +2,17 @@ import IO from "IO"
 import { concat } from "List"
 import String from "String"
 
+import { parser } from "./Margs"
 import {
   ConcreteBooleanFlag,
   ConcreteFloatFlag,
   ConcreteIntegerFlag,
   ConcreteStringFlag,
-  Exclusive,
-  Flag,
   Garbage,
   InvalidFlag,
-  ParseBoolean,
-  ParseString,
-  Unspecial,
-  parser,
-} from "./Margs"
+} from "@/Concrete"
+import { Flag } from "@/Flag"
+import { Exclusive, ParseBoolean, ParseString, Unspecial } from "@/Parse"
 
 
 
@@ -31,7 +28,7 @@ main = () => {
     ],
     "-i input.file -o output.file --debug",
   )
-    |> IO.trace("what is this?")
+    |> IO.pTrace("what is this?")
   // x = true
   // where(x) { Boolean => "test"_ => "shit" } |> IO.trace("hmmm")
   [
@@ -41,5 +38,5 @@ main = () => {
     ConcreteIntegerFlag("size", 42),
     Garbage,
   ]
-    |> IO.trace("A list!")
+    |> IO.pTrace("A list!")
 }

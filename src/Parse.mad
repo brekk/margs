@@ -1,0 +1,61 @@
+export type ParseType = ParseInteger | ParseFloat | ParseBoolean | ParseString
+export type SpecialType = Ordered(Integer) | Exclusive | Accumulative | Unspecial
+
+asExclusive :: SpecialType -> Boolean
+export asExclusive = where {
+  Exclusive =>
+    true
+
+  _ =>
+    false
+}
+
+
+
+asBoolean :: ParseType -> Boolean
+export asBoolean = where {
+  ParseBoolean =>
+    true
+
+  _ =>
+    false
+}
+
+asString :: ParseType -> Boolean
+export asString = where {
+  ParseString =>
+    true
+
+  _ =>
+    false
+}
+
+asInteger :: ParseType -> Boolean
+export asInteger = where {
+  ParseInteger =>
+    true
+
+  _ =>
+    false
+}
+
+asFloat :: ParseType -> Boolean
+export asFloat = where {
+  ParseFloat =>
+    true
+
+  _ =>
+    false
+}
+
+asNumber :: ParseType -> Boolean
+export asNumber = where {
+  ParseInteger =>
+    true
+
+  ParseFloat =>
+    true
+
+  _ =>
+    false
+}
